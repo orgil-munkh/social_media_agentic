@@ -24,7 +24,7 @@ async function main(): Promise<void> {
   logEvent("cron.start", { timezone: TZ });
 
   cron.schedule(
-    "0 8 * * *",
+    "0 6 * * *",
     async () => {
       try {
         await runGenerateAndPost();
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   );
 
   logEvent("cron.scheduled", {
-    generate: "08:00 ULAT",
+    generate: "06:00 ULAT",
     measure: "22:00 ULAT",
   });
 }

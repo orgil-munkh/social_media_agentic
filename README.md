@@ -58,7 +58,7 @@ npm run dev
 ```
 
 Schedules (Asia/Ulaanbaatar):
-- **08:00** — Generate + post
+- **06:00** — Generate + post
 - **22:00** — Measure + optimize
 
 ### Production build
