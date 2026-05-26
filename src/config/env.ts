@@ -13,16 +13,17 @@ const envSchema = z.object({
   META_IG_USER_ID: z.string().optional(),
   META_GRAPH_VERSION: z.string().default("v22.0"),
   BRAND_NAME: z.string().default("discipline.mn"),
-  DEFAULT_POST_HOUR: z.coerce.number().int().min(0).max(23).default(8),
+  DEFAULT_POST_HOUR: z.coerce.number().int().min(0).max(23).default(6),
   DRY_RUN: z
     .string()
     .optional()
     .transform((v) => v === "true" || v === "1"),
   TZ: z.string().default("Asia/Ulaanbaatar"),
+  THEME_DEDUP_DAYS: z.coerce.number().int().min(1).default(30),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 export const env: Env = envSchema.parse(process.env);
 
-export const POSTING_CANDIDATE_HOURS = [8, 13, 19] as const;
+export const POSTING_CANDIDATE_HOURS = [6, 8, 13, 19] as const;

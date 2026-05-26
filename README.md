@@ -51,15 +51,26 @@ npm run pipeline:once   # Generate content, create image, publish to Instagram
 npm run measure:once    # Collect engagement, score, evolve patterns
 ```
 
-### Run as cron daemon
+### Production scheduler (recommended)
+
+Use **Cursor Cloud Automations** to run the pipeline on schedule without a local daemon.
+
+Setup guide: [`.cursor/automations/README.md`](.cursor/automations/README.md)
+
+| Time (Asia/Ulaanbaatar) | Job |
+|-------------------------|-----|
+| **06:00** | Generate poster + publish to Instagram |
+| **22:00** | Measure engagement + optimize patterns |
+
+Configure Cursor Cloud secrets (see automation README), create two cron automations, and disable any legacy duplicate automation.
+
+### Local cron (optional / legacy)
 
 ```bash
 npm run dev
 ```
 
-Schedules (Asia/Ulaanbaatar):
-- **08:00** — Generate + post
-- **22:00** — Measure + optimize
+Runs the same schedule locally via `node-cron` (06:00 generate, 22:00 measure). Prefer Cursor Automations for production; use this only for local development or debugging.
 
 ### Production build
 

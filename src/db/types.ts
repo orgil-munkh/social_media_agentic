@@ -59,6 +59,7 @@ export interface PromptContext {
   topThemes: string[];
   topVisuals: string[];
   suppressedPatterns: string[];
+  recentThemes: string[];
 }
 
 export interface PostRow {

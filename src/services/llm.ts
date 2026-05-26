@@ -2,6 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { env } from "../config/env.js";
+import { dedupeThemes } from "../utils/themeDedup.js";
 import type { PromptContext } from "../db/types.js";
 
 const openai = createOpenAI({ apiKey: env.OPENAI_API_KEY });
@@ -54,7 +55,20 @@ const MONGOLIAN_CONTENT_RULES = `
 - Discipline vs laziness contrast, identity framing
 `;
 
-function buildContentSystemPrompt(context: PromptContext): string {
+function buildContentSystemPrompt(
+  context: PromptContext,
+  avoidThemes: string[] = []
+): string {
+  const blockedThemes = dedupeThemes([
+    ...context.recentThemes,
+    ...avoidThemes,
+  ]);
+  const blockedThemesSection =
+    blockedThemes.length > 0
+      ? `\nСүүлийн ${env.THEME_DEDUP_DAYS} хоногт ашигласан theme (ДАВТАЖ БОЛОХГҮЙ, exact match):
+${blockedThemes.map((t) => `- ${t}`).join("\n")}`
+      : "";
+
   return `Та монгол хэл дээр viral social media контент бичдэг мэргэжилтэн.
 
 ${MONGOLIAN_CONTENT_RULES}
@@ -69,7 +83,7 @@ ${context.topTones.map((t) => `- ${t}`).join("\n") || "- Шууд, эелдэг 
 ${context.topThemes.map((t) => `- ${t}`).join("\n") || "- Сахилга, хяналт, өөртөө итгэх итгэл"}
 
 Хэрэглэхгүй бүтэц (сул гүйцэтгэл):
-${context.suppressedPatterns.map((p) => `- ${p}`).join("\n") || "- Ерөнхий motivational quote"}
+${context.suppressedPatterns.map((p) => `- ${p}`).join("\n") || "- Ерөнхий motivational quote"}${blockedThemesSection}
 
 Instagram caption формат:
 - hook + 2-3 мөр, hashtag 3-5 (монгол)`;
@@ -91,13 +105,16 @@ function buildVisualSystemPrompt(context: PromptContext): string {
 ${context.topVisuals.map((v) => `- ${v}`).join("\n") || "- Dark moody silhouette, high contrast lighting"}`;
 }
 
-export async function generateHookVariants(context: PromptContext) {
+export async function generateHookVariants(
+  context: PromptContext,
+  avoidThemes: string[] = []
+) {
   const { object } = await generateObject({
     model: openai(env.OPENAI_TEXT_MODEL),
     schema: hookVariantsSchema,
-    system: buildContentSystemPrompt(context),
+    system: buildContentSystemPrompt(context, avoidThemes),
     prompt:
-      "2-3 өөр hook variant үүсгэ. Нэг санаа, өөр Mongolian hook structure. Instagram caption бүрт hook + 2-3 мөр + hashtag. Бүх field монгол хэлээр.",
+      "2-3 өөр hook variant үүсгэ. Нэг санаа, өөр Mongolian hook structure. Instagram caption бүрт hook + 2-3 мөр + hashtag. Бүх field монгол хэлээр. theme нь дээрх хориглосон жагсаалтад байгаа утгатай яг таарах ёсгүй.",
   });
   return object.variants;
 }

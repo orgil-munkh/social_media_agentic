@@ -1,14 +1,46 @@
 import { getSupabase } from "../db/supabase.js";
+import { env } from "../config/env.js";
+import { normalizeTheme } from "../utils/themeDedup.js";
 import type {
   MemoryCategory,
   PatternType,
   PromptContext,
 } from "../db/types.js";
 
+export async function getRecentUsedThemes(
+  days = env.THEME_DEDUP_DAYS
+): Promise<string[]> {
+  const supabase = getSupabase();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+
+  const { data, error } = await supabase
+    .from("posts")
+    .select("theme")
+    .gte("created_at", cutoff.toISOString())
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch recent themes: ${error.message}`);
+  }
+
+  const seen = new Set<string>();
+  const themes: string[] = [];
+  for (const row of data ?? []) {
+    const normalized = normalizeTheme(row.theme);
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      themes.push(row.theme);
+    }
+  }
+  return themes;
+}
+
 export async function getPromptContext(): Promise<PromptContext> {
   const supabase = getSupabase();
 
-  const [hooks, tones, themes, visuals, suppressed] = await Promise.all([
+  const [hooks, tones, themes, visuals, suppressed, recentThemes] =
+    await Promise.all([
     supabase
       .from("trend_memory")
       .select("content")
@@ -39,6 +71,7 @@ export async function getPromptContext(): Promise<PromptContext> {
       .lt("performance_weight", 0.5)
       .order("performance_weight", { ascending: true })
       .limit(10),
+    getRecentUsedThemes(),
   ]);
 
   return {
@@ -47,6 +80,7 @@ export async function getPromptContext(): Promise<PromptContext> {
     topThemes: (themes.data ?? []).map((r) => r.content),
     topVisuals: (visuals.data ?? []).map((r) => r.content),
     suppressedPatterns: (suppressed.data ?? []).map((r) => r.pattern),
+    recentThemes,
   };
 }
 

@@ -1,0 +1,15 @@
+---
+description: Instagram-only pipeline ops for Cursor automations and agents
+alwaysApply: true
+---
+
+# Instagram Pipeline Automation
+
+- **Platform:** Instagram only — no Facebook or Threads publishing or measurement.
+- **Scheduled commands:** Use `npm run pipeline:once` (generate + post) and `npm run measure:once` (measure + optimize) for automation runs.
+- **Schedule:** Generate at **06:00** Asia/Ulaanbaatar; measure at **22:00** Asia/Ulaanbaatar.
+- **Secrets:** Never commit `.env`, log API keys, or push secrets to the repository.
+- **Scoring:** Virality analysis uses Instagram engagement metrics only (`platform=instagram`).
+- **Image output:** 4:5 portrait posters at 1024×1280 for the Instagram feed.
+- **Production scheduler:** Cursor Cloud Automations (see `.cursor/automations/README.md`). Local `npm run dev` cron is optional for development only.
+- **Automation behavior:** Do not commit, push, or edit plan files during scheduled runs unless fixing an explicit failure with user approval.
