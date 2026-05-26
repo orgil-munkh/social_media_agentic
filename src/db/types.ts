@@ -21,7 +21,7 @@ export interface VisualPrompt {
   scene: string;
   mood: string;
   colorPalette: string;
-  textOverlay?: string;
+  quoteContextEn: string;
   composition: string;
 }
 

@@ -3,7 +3,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { dedupeThemes } from "../utils/themeDedup.js";
-import type { PromptContext } from "../db/types.js";
+import type { PromptContext, VisualPrompt } from "../db/types.js";
 
 const openai = createOpenAI({ apiKey: env.OPENAI_API_KEY });
 
@@ -21,7 +21,7 @@ export const visualPromptSchema = z.object({
   scene: z.string(),
   mood: z.string(),
   colorPalette: z.string(),
-  textOverlay: z.string().optional(),
+  quoteContextEn: z.string(),
   composition: z.string(),
 });
 
@@ -44,14 +44,16 @@ export const extractedPatternsSchema = z.object({
   visualStyles: z.array(z.string()),
 });
 
-const MONGOLIAN_CONTENT_RULES = `
-Чухал дүрэм:
-- БҮХ текст 100% монгол хэлээр, соёлын хэлбэрээр бичнэ
-- Англи үг, орчуулгын бүтэц хориглоно
-- Нэг пост = нэг санаа
-- Ерөнхий motivational quote биш, шууд, эмotional, identity-based hook
-- 18-35 насны монгол залуусын social media хэлбэр
-- Шууд confrontation tone, self-reflection trigger
+const CONTENT_OUTPUT_RULES = `
+Output language: theme, hook, and caption MUST be native Mongolian Cyrillic. Do not use English in generated content fields.
+
+Content rules:
+- All output text must be 100% Mongolian in natural cultural phrasing
+- No English words or translated-sentence structures
+- One post = one idea
+- Not generic motivational quotes — use direct, emotional, identity-based hooks
+- Target Mongolian young adults aged 18–35 on social media
+- Direct confrontation tone, self-reflection triggers
 - Discipline vs laziness contrast, identity framing
 `;
 
@@ -65,43 +67,44 @@ function buildContentSystemPrompt(
   ]);
   const blockedThemesSection =
     blockedThemes.length > 0
-      ? `\nСүүлийн ${env.THEME_DEDUP_DAYS} хоногт ашигласан theme (ДАВТАЖ БОЛОХГҮЙ, exact match):
+      ? `\nThemes used in the last ${env.THEME_DEDUP_DAYS} days (DO NOT REUSE, exact match):
 ${blockedThemes.map((t) => `- ${t}`).join("\n")}`
       : "";
 
-  return `Та монгол хэл дээр viral social media контент бичдэг мэргэжилтэн.
+  return `You are an expert at writing viral Mongolian-language social media content.
 
-${MONGOLIAN_CONTENT_RULES}
+${CONTENT_OUTPUT_RULES}
 
-Амжилттай hook жишээ:
+Successful hook examples:
 ${context.topHooks.map((h) => `- ${h}`).join("\n") || "- Чи залхуу биш. Чи зүгээр л хяналтаа алдсан."}
 
-Амжилттай tone:
+Successful tone:
 ${context.topTones.map((t) => `- ${t}`).join("\n") || "- Шууд, эелдэг бус, өөртөө шүүмжлэлтэй"}
 
-Сонирхолтой theme:
+High-performing themes:
 ${context.topThemes.map((t) => `- ${t}`).join("\n") || "- Сахилга, хяналт, өөртөө итгэх итгэл"}
 
-Хэрэглэхгүй бүтэц (сул гүйцэтгэл):
-${context.suppressedPatterns.map((p) => `- ${p}`).join("\n") || "- Ерөнхий motivational quote"}${blockedThemesSection}
+Patterns to avoid (weak performance):
+${context.suppressedPatterns.map((p) => `- ${p}`).join("\n") || "- Generic motivational quote"}${blockedThemesSection}
 
-Instagram caption формат:
-- hook + 2-3 мөр, hashtag 3-5 (монгол)`;
+Instagram caption format:
+- hook + 2-3 lines, 3-5 hashtags (Mongolian)`;
 }
 
 function buildVisualSystemPrompt(context: PromptContext): string {
-  return `Та Instagram viral зурагны visual director.
+  return `You are a visual director for viral Instagram images.
 
-Дүрэм:
+Rules:
 - Minimal cinematic design
 - Dark aesthetic, strong emotional contrast
 - 4:5 vertical portrait composition for Instagram feed
-- Keep bottom third clear for text overlay (text rendered separately)
+- Keep bottom third clear for text overlay (text rendered separately in post-processing)
 - High readability composition (text overlay post-rendered separately)
-- DO NOT include Cyrillic/Mongolian text in scene description — textOverlay field only
-- Scene descriptions in English for image model
+- Scene, mood, colorPalette, composition, and quoteContextEn must be in English
+- Read the Mongolian hook, infer its core emotional message, and design scene/mood/composition to visually metaphorize or symbolize that message
+- The image must reflect the quote's meaning — avoid generic motivational imagery unrelated to the hook
 
-Амжилттай visual styles:
+Successful visual styles:
 ${context.topVisuals.map((v) => `- ${v}`).join("\n") || "- Dark moody silhouette, high contrast lighting"}`;
 }
 
@@ -114,7 +117,7 @@ export async function generateHookVariants(
     schema: hookVariantsSchema,
     system: buildContentSystemPrompt(context, avoidThemes),
     prompt:
-      "2-3 өөр hook variant үүсгэ. Нэг санаа, өөр Mongolian hook structure. Instagram caption бүрт hook + 2-3 мөр + hashtag. Бүх field монгол хэлээр. theme нь дээрх хориглосон жагсаалтад байгаа утгатай яг таарах ёсгүй.",
+      "Generate 2-3 hook variants. Each variant shares one idea but uses a different Mongolian hook structure. Each caption must include hook + 2-3 lines + hashtags. All theme, hook, and caption fields must be in Mongolian Cyrillic. theme must not exactly match any blocked theme in the list above.",
   });
   return object.variants;
 }
@@ -128,7 +131,14 @@ export async function generateVisualVariants(
     model: openai(env.OPENAI_TEXT_MODEL),
     schema: visualVariantsSchema,
     system: buildVisualSystemPrompt(context),
-    prompt: `Theme: ${theme}\nHook: ${hook}\n\n2 visual variant үүсгэ. variantKey: "primary" болон "alternate". textOverlay монгол хэлээр (optional). Scene/mood/composition English.`,
+    prompt: `Theme: ${theme}
+Hook (Mongolian quote): ${hook}
+
+Generate 2 visual variants with variantKey "primary" and "alternate".
+For each variant:
+1. Read the Mongolian hook and write quoteContextEn: 1-2 English sentences describing what the quote means visually.
+2. Design scene, mood, colorPalette, and composition in English so the image metaphorically reflects the hook's emotional message.
+Scene/mood/composition/quoteContextEn must be in English.`,
   });
   return object.variants;
 }
@@ -139,24 +149,28 @@ export async function extractPatternsFromPosts(
   const { object } = await generateObject({
     model: openai(env.OPENAI_TEXT_MODEL),
     schema: extractedPatternsSchema,
-    system: "Extract reusable Mongolian viral content patterns from top-performing posts.",
+    system:
+      "Extract reusable Mongolian viral content patterns from top-performing posts. Text patterns (hookStructures, emotionalTones, sentenceRhythms, culturalExpressions) should remain in Mongolian where applicable. visualStyles may be in English.",
     prompt: JSON.stringify(posts, null, 2),
   });
   return object;
 }
 
-export function buildImagePromptText(prompt: {
-  scene: string;
-  mood: string;
-  colorPalette: string;
-  composition: string;
-}): string {
+export function buildImagePromptText(
+  hook: string,
+  theme: string,
+  prompt: VisualPrompt
+): string {
   return [
     "Minimal cinematic social media image.",
+    `Quote message (Mongolian): ${hook}`,
+    `Theme: ${theme}`,
+    `Visual interpretation: ${prompt.quoteContextEn}`,
     `Scene: ${prompt.scene}`,
     `Mood: ${prompt.mood}`,
     `Colors: ${prompt.colorPalette}`,
     `Composition: ${prompt.composition}`,
+    "The image must visually support and reflect the quote's meaning; avoid generic motivational imagery unrelated to the quote.",
     "Dark aesthetic, high emotional contrast, Instagram viral style.",
     "Vertical 4:5 portrait composition.",
     "No text, no letters, no watermarks in the image.",

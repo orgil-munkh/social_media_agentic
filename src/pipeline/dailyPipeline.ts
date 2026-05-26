@@ -70,7 +70,7 @@ export async function runGenerateAndPost(): Promise<void> {
 
     const imageBuffer = await generateImage(visualResult.primary.imagePromptText);
     const brandedBuffer = await renderBrandedImage(imageBuffer, {
-      textOverlay: visualResult.primary.prompt.textOverlay,
+      textOverlay: contentResult.primary.hook,
     });
 
     const { path, publicUrl } = await uploadPostImage(
